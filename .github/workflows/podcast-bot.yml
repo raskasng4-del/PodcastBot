@@ -28,7 +28,7 @@ jobs:
           sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-hosny-amiri
           # تصليح ImageMagick policy باش يسمح لـ MoviePy يستعمل TextClip
           if [ -f /etc/ImageMagick-6/policy.xml ]; then
-            sudo sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<policy domain="path" rights="read|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml
+            sudo sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<policy domain="path" rights="read\|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml
           fi
           pip install -q -r requirements.txt
 
