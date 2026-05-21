@@ -45,22 +45,27 @@ def process_podcast_fast(url, title, index):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.extract_info(url, download=True)
 
-        os.system(f"ffmpeg -i raw_{index}.mp3 -af 'volume=1.5, aresample=44100, atempo=1.02' -y enhanced_{index}.mp3 > /dev/null 2>&1")
+        os.system(f"ffmpeg -i raw_{index}.mp3 -af 'volume=1.5, atempo=1.07, asetrate=48000*0.96,aresample=48000, highpass=f=80, lowpass=f=7500' -y enhanced_{index}.mp3 > /dev/null 2>&1")
         audio = AudioFileClip(f"enhanced_{index}.mp3")
 
         bg = ImageClip(image_path).set_duration(audio.duration)
-        bg = bg.resize(lambda t: 1 + 0.03 * t / audio.duration)
+        bg = bg.resize(lambda t: 0.97 + 0.06 * t / audio.duration)
 
         video_text = f"{title} | الحلقة ({index})"
         reshaped_text = arabic_reshaper.reshape(video_text)
         bidi_text = get_display(reshaped_text)
 
         font_path = '/usr/share/fonts/truetype/hosny-amiri/Amiri-Bold.ttf'
+        txt_shadow = TextClip(bidi_text, fontsize=45, color='black', font=font_path,
+                              method='caption', size=(bg.w*0.8, None))
+        txt_shadow = txt_shadow.set_duration(audio.duration).set_position(('center', 750))
+
         txt = TextClip(bidi_text, fontsize=45, color='white', font=font_path,
                        bg_color='rgba(0,0,0,0.6)', method='caption', size=(bg.w*0.8, None))
         txt = txt.set_duration(audio.duration).set_position(('center', 750))
 
-        video = CompositeVideoClip([bg, txt]).set_audio(audio)
+        video = CompositeVideoClip([bg, txt_shadow, txt]).set_audio(audio)
+        video = video.fadein(1).fadeout(1)
         final_output = os.path.join(save_path, f"Abdo_Samir_Pro_{index}.mp4")
 
         video.write_videofile(final_output, fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)

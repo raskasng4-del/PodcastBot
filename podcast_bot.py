@@ -58,9 +58,13 @@ class Config:
     retry_count: int = 3
     skip_existing: bool = True
     audio_volume: float = 1.5
-    audio_speed: float = 1.02
+    audio_speed: float = 1.07
+    pitch_shift: float = 0.96
+    eq_highpass: int = 80
+    eq_lowpass: int = 7500
     text_size: int = 45
     fps: int = 24
+    fade_duration: float = 1.0
 
 
 @dataclass
@@ -190,6 +194,11 @@ def process_audio(input_path: str, index: int, config: Config) -> Optional[str]:
         filters.append(f"volume={config.audio_volume}")
     if config.audio_speed != 1.0:
         filters.append(f"atempo={config.audio_speed}")
+    # تغيير البيتش لتفادي الكوبريت
+    if config.pitch_shift != 1.0:
+        filters.append(f"asetrate=48000*{config.pitch_shift},aresample=48000")
+    # فلترة الترددات للكوبريت
+    filters.append(f"highpass=f={config.eq_highpass},lowpass=f={config.eq_lowpass}")
     
     filter_str = ','.join(filters) if filters else None
     
@@ -222,7 +231,8 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
             return None
 
         bg = ImageClip(config.bg_image_path).set_duration(duration)
-        bg = bg.resize(lambda t: 1 + 0.03 * t / duration)
+        # زووم متطور: يبدا مقرب شويا ويفتح مع الوقت
+        bg = bg.resize(lambda t: 0.97 + 0.06 * t / duration)
         
         clips = [bg]
         
@@ -245,6 +255,17 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
         except Exception:
             pass
 
+        # ظل النص
+        txt_shadow = TextClip(
+            video_text,
+            fontsize=config.text_size,
+            color='black',
+            font=config.font_path or 'Arial',
+            method='caption',
+            size=(bg.w * 0.8, None)
+        ).set_duration(duration).set_position(lambda t: ('center', 'center'))
+
+        # النص الرئيسي
         txt = TextClip(
             video_text,
             fontsize=config.text_size,
@@ -255,7 +276,7 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
             size=(bg.w * 0.8, None)
         ).set_duration(duration).set_position(('center', 'center'))
 
-        clips.append(txt)
+        clips.extend([txt_shadow, txt])
 
         if config.intro_audio and os.path.exists(config.intro_audio):
             try:
@@ -267,6 +288,7 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
                 log.warning(f"⚠️ فشل إضافة المقدمة: {e}")
 
         video = CompositeVideoClip(clips).set_audio(audio)
+        video = video.fadein(config.fade_duration).fadeout(config.fade_duration)
         
         os.makedirs(config.output_dir, exist_ok=True)
         output_path = os.path.join(config.output_dir, f"Abdo_Samir_Pro_{index}.mp4")
