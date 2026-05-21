@@ -57,7 +57,7 @@ def process_podcast_fast(url, title, index):
         reshaped_text = arabic_reshaper.reshape(video_text)
         bidi_text = get_display(reshaped_text)
 
-        font_path = '/usr/share/fonts/truetype/hosny-amiri/Amiri-Bold.ttf'
+        font_path = '/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf'
         txt_shadow = TextClip(bidi_text, fontsize=45, color='black', font=font_path,
                               method='caption', size=(bg.w*0.8, None))
         txt_shadow = txt_shadow.set_duration(audio.duration).set_position(('center', 750))

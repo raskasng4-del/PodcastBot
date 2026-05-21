@@ -3,11 +3,11 @@ FROM python:3.9-slim
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     imagemagick \
-    fonts-hosny-amiri \
+    fonts-noto \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-RUN sed -i 's/rights="none" pattern="@\*"/rights="read|write" pattern="@\*"/g' /etc/ImageMagick-6/policy.xml
+RUN sed -i 's|<policy domain="path" rights="none" pattern="@*"/>|<policy domain="path" rights="read|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml || true
 
 WORKDIR /app
 

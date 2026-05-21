@@ -100,6 +100,10 @@ def setup_environment():
     
     # إيجاد خط عربي
     font_paths = [
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoKufiArabic-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoKufiArabic-Regular.ttf",
         "/usr/share/fonts/truetype/cairo/Cairo-Bold.ttf",
         "/usr/share/fonts/opentype/cairo/Cairo-Bold.otf",
         "Cairo-Bold.ttf",
