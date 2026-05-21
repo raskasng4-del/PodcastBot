@@ -25,7 +25,7 @@ jobs:
       - name: 📦 تثبيت
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg imagemagick fonts-amiri
+          sudo apt-get install -y ffmpeg imagemagick
           pip install -q -r requirements.txt
 
       - name: 🤖 تشغيل البوت
