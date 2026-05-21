@@ -67,6 +67,8 @@ class Config:
     text_size: int = 45
     fps: int = 24
     fade_duration: float = 1.0
+    video_bitrate: str = "1500k"
+    audio_bitrate: str = "128k"
 
 
 @dataclass
@@ -306,7 +308,8 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
         video.write_videofile(
             output_path, fps=config.fps,
             codec="libx264", audio_codec="aac",
-            preset="medium", bitrate="3000k",
+            preset="medium", bitrate=config.video_bitrate,
+            audio_bitrate=config.audio_bitrate,
             threads=2, verbose=False, logger=None
         )
         
@@ -343,10 +346,16 @@ def upload_to_facebook(video_path: str, index: int, config: Config) -> Optional[
                 
                 files = {'source': (f'video_{index}.mp4', f, 'video/mp4')}
                 r = requests.post(
-                    f"https://graph-video.facebook.com/v18.0/{config.page_id}/videos",
+                    f"https://graph-video.facebook.com/v22.0/{config.page_id}/videos",
                     data=data, files=files, timeout=600
                 )
-                result = r.json()
+                log.info(f"   رمز الحالة: {r.status_code}")
+                log.info(f"   طول الرد: {len(r.text)} حرف")
+                try:
+                    result = r.json()
+                except Exception:
+                    log.warning(f"⚠️ الرد مش JSON: {r.text[:500]}")
+                    result = {}
                 
                 if "id" in result:
                     log.info(f"✅ الحلقة {index} منشورة! ID: {result['id']}")
