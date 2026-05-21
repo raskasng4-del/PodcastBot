@@ -87,44 +87,48 @@ class EpisodeResult:
 def setup_environment():
     """تثبيت المتطلبات محلياً"""
     
-    # التأكد من وجود ffmpeg
-    if not shutil.which('ffmpeg'):
-        log.info("📦 ffmpeg غير موجود. جاري التثبيت...")
-        if sys.platform == 'linux':
-            subprocess.run(['apt-get', 'install', '-y', 'ffmpeg'], capture_output=True)
-        elif sys.platform == 'darwin':
-            subprocess.run(['brew', 'install', 'ffmpeg'], capture_output=True)
-        elif sys.platform == 'win32':
-            log.error("❌ يرجى تثبيت ffmpeg من: https://ffmpeg.org/download.html")
-            sys.exit(1)
-    
-    # إيجاد خط عربي
+    # إيجاد خط عربي - نبحث في مسارات معروفة
     font_paths = [
         "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
         "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoKufiArabic-Bold.ttf",
         "/usr/share/fonts/truetype/noto/NotoKufiArabic-Regular.ttf",
+        "/usr/share/fonts/google-noto-vf/NotoNaskhArabic[wght].ttf",
         "/usr/share/fonts/truetype/cairo/Cairo-Bold.ttf",
         "/usr/share/fonts/opentype/cairo/Cairo-Bold.otf",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "Cairo-Bold.ttf"),
         "Cairo-Bold.ttf",
         os.path.expanduser("~/.fonts/Cairo-Bold.ttf"),
+        "/usr/share/fonts/truetype/hosny-amiri/Amiri-Bold.ttf",
+        "/usr/share/fonts/truetype/hosny-amiri/Amiri-Regular.ttf",
     ]
     
     font_found = None
     for fp in font_paths:
         if os.path.exists(fp):
             font_found = fp
+            log.info(f"✅ تم العثور على الخط: {font_found}")
             break
     
     if not font_found:
-        log.info("📥 تحميل خط Cairo...")
-        os.makedirs(os.path.expanduser("~/.fonts"), exist_ok=True)
-        url = "https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Bold.ttf"
-        r = requests.get(url, timeout=30)
-        font_found = os.path.expanduser("~/.fonts/Cairo-Bold.ttf")
-        with open(font_found, 'wb') as f:
-            f.write(r.content)
-        subprocess.run(['fc-cache', '-f'], capture_output=True)
+        try:
+            result = subprocess.run(
+                ['fc-match', '-v', 'sans:lang=ar'],
+                capture_output=True, text=True, timeout=10
+            )
+            for line in result.stdout.split('\n'):
+                if 'file:' in line:
+                    path = line.split('"')[1] if '"' in line else ''
+                    if path and os.path.exists(path):
+                        font_found = path
+                        log.info(f"✅ تم العثور على خط عربي: {font_found}")
+                        break
+        except Exception:
+            pass
+    
+    if not font_found:
+        log.warning("⚠️ لم نجد خط عربي. راح نستخدم Arial (قد لا يعمل)")
+        font_found = None
     
     return font_found
 
