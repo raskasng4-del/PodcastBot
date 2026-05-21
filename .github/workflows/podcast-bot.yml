@@ -1,0 +1,57 @@
+name: 🤖 Podcast Bot
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL مباشر للمعالجة"
+        required: false
+      story:
+        description: "عنوان القصة"
+        required: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN || github.token }}
+
+      - name: 📦 تثبيت
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg imagemagick
+          pip install -q yt-dlp moviepy arabic-reshaper python-bidi requests
+
+      - name: 📥 الخط العربي
+        run: |
+          mkdir -p ~/.fonts
+          wget -q https://github.com/google/fonts/raw/main/ofl/cairo/Cairo-Bold.ttf -O ~/.fonts/Cairo-Bold.ttf
+
+      - name: 🤖 تشغيل البوت
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
+          INPUT_URL: ${{ github.event.inputs.url || '' }}
+          INPUT_STORY: ${{ github.event.inputs.story || '' }}
+        run: |
+          python podcast_bot.py \
+            --page-id "$FB_PAGE_ID" \
+            --token "$FB_ACCESS_TOKEN" \
+            --url "$INPUT_URL" \
+            --story "$INPUT_STORY" \
+            --bg background.png \
+            --output output
+
+      - name: 📤 رفع المخرجات للمستودع
+        run: |
+          git config user.name "Podcast Bot"
+          git config user.email "bot@podcast.com"
+          git add output/ urls.txt processed.txt 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "🤖 تحديث تلقائي $(date +%Y-%m-%d)"
+          git push
