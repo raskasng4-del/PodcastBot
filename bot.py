@@ -13,7 +13,7 @@ change_settings({"IMAGEMAGICK_BINARY": r"/usr/bin/convert"})
 
 # 🔑 المفاتيح (يجب تعبئتها قبل التشغيل)
 TELEGRAM_BOT_TOKEN = "8246855100:AAH9Yy1MRFg9gIR0Q9_IoQ5GEc-WswmjP_8"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 PAGE_ID = "1179824185206026"
 FB_ACCESS_TOKEN = "EAAabFJ234rMBRWKWcZAFGsv3Qn7oQwf9ZBrkEhvd0qfJYbnaBFhyGLbfcVqYLVajZA2LeH6AGa5sq7xh3UAjmiJzWcDzV7Cbwv7EZC1n9gALs5r6CHxTCEtWJvIpaSq9DpfHNP4XHfDjcyzf5BlTMduVbfg2QgQIO00eZB7JKnvqZAJcPGpiNOLXyf4VwZCFiAr3SXmDDlP"
 
