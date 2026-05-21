@@ -19,6 +19,8 @@ from enum import Enum
 
 import requests
 import yt_dlp
+from PIL import Image as PILImage
+PILImage.ANTIALIAS = PILImage.LANCZOS
 from moviepy.editor import *
 from moviepy.config import change_settings
 

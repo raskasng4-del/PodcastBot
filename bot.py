@@ -2,6 +2,8 @@ import os
 import yt_dlp
 import requests
 import telebot
+from PIL import Image as PILImage
+PILImage.ANTIALIAS = PILImage.LANCZOS
 from moviepy.editor import *
 from moviepy.config import change_settings
 import arabic_reshaper
