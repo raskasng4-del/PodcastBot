@@ -29,23 +29,16 @@ jobs:
           pip install -r requirements.txt
           python3 -c "import curl_cffi; print('✅ curl_cffi', curl_cffi.__version__)"
 
+      - name: 🔑 كتابة الكوكيز
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: python3 -c "import base64,os; data=os.environ['YOUTUBE_COOKIES']; open('youtube_cookies.txt','wb').write(base64.b64decode(data)); print('Cookies:',len(base64.b64decode(data)),'bytes')"
+
       - name: 🤖 تشغيل البوت - مراقبة يوتيوب ونشر للفيسبوك
         env:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          python3 -c "
-import base64, os
-b64 = os.environ.get('YOUTUBE_COOKIES', '')
-if b64:
-    with open('youtube_cookies.txt', 'wb') as f:
-        f.write(base64.b64decode(b64))
-    print(f'✅ Cookies written: {len(base64.b64decode(b64))} bytes')
-else:
-    print('⚠️ No cookies secret')
-" && \
-          COOKIES_ARG="--cookies youtube_cookies.txt" && \
           python podcast_bot.py \
             --page-id "$FB_PAGE_ID" \
             --token "$FB_ACCESS_TOKEN" \
@@ -53,7 +46,7 @@ else:
             --bg abdo.png \
             --output output \
             --part-duration 1800 \
-            $COOKIES_ARG
+            --cookies youtube_cookies.txt
 
       - name: 💾 حفظ الحالة (processed.txt) في المستودع
         run: |
