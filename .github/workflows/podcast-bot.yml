@@ -21,12 +21,13 @@ jobs:
       - name: 📦 تثبيت
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-hosny-amiri
+          sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-hosny-amiri libcurl4-openssl-dev
           sudo fc-cache -f
           if [ -f /etc/ImageMagick-6/policy.xml ]; then
             sudo sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<policy domain="path" rights="read\|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml
           fi
-          pip install -q -r requirements.txt
+          pip install -r requirements.txt
+          python3 -c "import curl_cffi; print('✅ curl_cffi', curl_cffi.__version__)"
 
       - name: 🤖 تشغيل البوت - مراقبة يوتيوب ونشر للفيسبوك
         env:
