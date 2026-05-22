@@ -474,6 +474,7 @@ def process_youtube_video(video: dict, episode_start: int, config: Config) -> li
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
             'quiet': True, 'no_warnings': True,
             'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
+            'extractor_args': {'youtube': {'js_runtimes': ['node']}},
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.extract_info(url, download=True)

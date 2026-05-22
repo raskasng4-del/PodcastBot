@@ -1,5 +1,6 @@
 yt-dlp
 curl_cffi==0.14.0
+yt-dlp-ejs
 moviepy==1.0.3
 pydub
 arabic-reshaper
