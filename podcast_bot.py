@@ -278,7 +278,7 @@ def create_video(audio_path: str, index: int, config: Config, story_title: str =
             font=config.font_path or 'Arial',
             method='caption',
             size=(bg.w * 0.8, None)
-        ).set_duration(duration).set_position(lambda t: ('center', 'center'))
+        ).set_duration(duration).set_position(('center', 'bottom'))
 
         # النص الرئيسي
         txt = TextClip(
@@ -289,7 +289,7 @@ def create_video(audio_path: str, index: int, config: Config, story_title: str =
             bg_color='rgba(0,0,0,0.6)',
             method='caption',
             size=(bg.w * 0.8, None)
-        ).set_duration(duration).set_position(('center', 'center'))
+        ).set_duration(duration).set_position(('center', 'bottom'))
 
         clips.extend([txt_shadow, txt])
 
