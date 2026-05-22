@@ -10,6 +10,7 @@ import subprocess
 import logging
 import re
 import shutil
+import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 from pathlib import Path
@@ -72,6 +73,9 @@ class Config:
     source_youtube_channel: str = ""
     state_file: str = "processed.txt"
     max_part_duration: int = 1800  # 30 دقيقة لكل جزء
+    show_waveform: bool = True  # عرض موجات الصوت
+    waveform_color: str = "#e94560"  # لون الموجات
+    waveform_height: int = 120  # ارتفاع الموجات
 
 
 @dataclass
@@ -236,6 +240,26 @@ def process_audio(input_path: str, index: int, config: Config) -> Optional[str]:
     return None
 
 
+def make_waveform(audio_path: str, index: int, config: Config) -> Optional[str]:
+    tmp_dir = "temp"
+    os.makedirs(tmp_dir, exist_ok=True)
+    out = f'{tmp_dir}/wave_{index}.mp4'
+    try:
+        subprocess.run([
+            'ffmpeg', '-i', audio_path,
+            '-filter_complex',
+            f"color=c=black@0:s=1280x{config.waveform_height}:r=25,format=rgba[bg];"
+            f"[0:a]showwaves=s=1280x{config.waveform_height}:mode=cline:rate=25:colors={config.waveform_color}[waves];"
+            f"[bg][waves]overlay=format=auto,format=rgba",
+            '-an', '-c:v', 'png', '-y', out
+        ], capture_output=True, timeout=600)
+        if os.path.exists(out) and os.path.getsize(out) > 100:
+            return out
+    except Exception as e:
+        log.warning(f"⚠️ فشل إنشاء الموجات: {e}")
+    return None
+
+
 def create_video(audio_path: str, index: int, config: Config, story_title: str = None) -> Optional[str]:
     try:
         audio = AudioFileClip(audio_path)
@@ -261,6 +285,18 @@ def create_video(audio_path: str, index: int, config: Config, story_title: str =
                 clips.append(wm)
             except Exception:
                 pass
+
+        # موجات الصوت
+        if config.show_waveform:
+            wave_path = make_waveform(audio_path, index, config)
+            if wave_path:
+                try:
+                    wave_clip = (VideoFileClip(wave_path, has_mask=True)
+                                 .set_duration(duration)
+                                 .set_position(('center', 'bottom')))
+                    clips.append(wave_clip)
+                except Exception as e:
+                    log.warning(f"⚠️ فشل إضافة الموجات للفيديو: {e}")
 
         video_text = f"{story_title or config.story_title} | الحلقة ({index})"
         try:

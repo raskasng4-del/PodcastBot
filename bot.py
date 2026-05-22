@@ -1,4 +1,5 @@
 import os
+import subprocess
 import yt_dlp
 import requests
 import telebot
@@ -66,7 +67,25 @@ def process_podcast_fast(url, title, index):
                        bg_color='rgba(0,0,0,0.6)', method='caption', size=(bg.w*0.8, None))
         txt = txt.set_duration(audio.duration).set_position(('center', 'bottom'))
 
-        video = CompositeVideoClip([bg, txt_shadow, txt]).set_audio(audio)
+        # موجات الصوت
+        try:
+            subprocess.run([
+                'ffmpeg', '-i', f"enhanced_{index}.mp3",
+                '-filter_complex',
+                f"color=c=black@0:s=1280x120:r=24,format=rgba[bg];"
+                f"[0:a]showwaves=s=1280x120:mode=cline:rate=24:colors=#e94560[waves];"
+                f"[bg][waves]overlay=format=auto,format=rgba",
+                '-an', '-c:v', 'png', '-y', f"wave_{index}.mp4"
+            ], capture_output=True, timeout=600)
+            if os.path.exists(f"wave_{index}.mp4"):
+                wave_clip = VideoFileClip(f"wave_{index}.mp4", has_mask=True).set_duration(audio.duration).set_position(('center', 'bottom'))
+                clips = [bg, txt_shadow, txt, wave_clip]
+            else:
+                clips = [bg, txt_shadow, txt]
+        except Exception:
+            clips = [bg, txt_shadow, txt]
+
+        video = CompositeVideoClip(clips).set_audio(audio)
         video = video.fadein(1).fadeout(1)
         final_output = os.path.join(save_path, f"Abdo_Samir_Pro_{index}.mp4")
 
