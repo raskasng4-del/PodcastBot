@@ -2,15 +2,8 @@ name: 🤖 Podcast Bot
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
-    inputs:
-      url:
-        description: "URL مباشر للمعالجة"
-        required: false
-      story:
-        description: "عنوان القصة"
-        required: false
 
 env:
   YOUTUBE_CHANNEL: "https://www.youtube.com/@samir-lail.mestapha-lherda/videos"
@@ -23,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: 📦 تثبيت
         run: |
@@ -34,36 +27,33 @@ jobs:
           fi
           pip install -q -r requirements.txt
 
-      - name: 🤖 تشغيل البوت
+      - name: 🤖 تشغيل البوت - مراقبة يوتيوب ونشر للفيسبوك
         env:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
-          INPUT_URL: ${{ github.event.inputs.url || '' }}
-          INPUT_STORY: ${{ github.event.inputs.story || '' }}
-          INPUT_YOUTUBE_CHANNEL: ${{ github.event.inputs.youtube_channel || env.YOUTUBE_CHANNEL }}
         run: |
           python podcast_bot.py \
             --page-id "$FB_PAGE_ID" \
             --token "$FB_ACCESS_TOKEN" \
-            --url "$INPUT_URL" \
-            --story "$INPUT_STORY" \
-            --youtube-channel "$INPUT_YOUTUBE_CHANNEL" \
+            --youtube-channel "$YOUTUBE_CHANNEL" \
             --bg abdo.png \
             --output output \
             --part-duration 1800
 
-      - name: 📥 رفع الفيديو كـ Artifact
+      - name: 💾 حفظ الحالة (processed.txt) في المستودع
+        run: |
+          git config user.name "Podcast Bot"
+          git config user.email "bot@podcast.com"
+          if [ -f processed.txt ] && [ -s processed.txt ]; then
+            git add processed.txt
+            git diff --staged --quiet || git commit -m "🤖 تحديث processed.txt $(date +%Y-%m-%d)"
+            git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+            git push
+          fi
+
+      - name: 📥 رفع الفيديوات كـ Artifact
         uses: actions/upload-artifact@v4
         with:
           name: podcast-video
           path: output/
           if-no-files-found: warn
-
-      - name: 📤 رفع المخرجات للمستودع (اختياري)
-        run: |
-          git config user.name "Podcast Bot"
-          git config user.email "bot@podcast.com"
-          git add output/ urls.txt processed.txt 2>/dev/null || true
-          git diff --staged --quiet || git commit -m "🤖 تحديث تلقائي $(date +%Y-%m-%d)"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN || github.token }}@github.com/${{ github.repository }}
-          git push || echo "⚠️ فشل الرفع، لكن الفيديو نشر ففيسبوك"
