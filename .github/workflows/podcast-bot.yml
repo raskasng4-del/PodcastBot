@@ -35,12 +35,17 @@ jobs:
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          if [ -n "$YOUTUBE_COOKIES" ]; then
-            echo "$YOUTUBE_COOKIES" | base64 -d > youtube_cookies.txt
-            COOKIES_ARG="--cookies youtube_cookies.txt"
-          else
-            COOKIES_ARG=""
-          fi
+          python3 -c "
+import base64, os
+b64 = os.environ.get('YOUTUBE_COOKIES', '')
+if b64:
+    with open('youtube_cookies.txt', 'wb') as f:
+        f.write(base64.b64decode(b64))
+    print(f'✅ Cookies written: {len(base64.b64decode(b64))} bytes')
+else:
+    print('⚠️ No cookies secret')
+" && \
+          COOKIES_ARG="--cookies youtube_cookies.txt" && \
           python podcast_bot.py \
             --page-id "$FB_PAGE_ID" \
             --token "$FB_ACCESS_TOKEN" \
