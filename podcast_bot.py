@@ -76,6 +76,7 @@ class Config:
     show_waveform: bool = True  # عرض موجات الصوت
     waveform_color: str = "#e94560"  # لون الموجات
     waveform_height: int = 120  # ارتفاع الموجات
+    cookies_file: str = ""  # ملف cookies ليوتيوب
 
 
 @dataclass
@@ -472,6 +473,7 @@ def process_youtube_video(video: dict, episode_start: int, config: Config) -> li
             'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s',
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
             'quiet': True, 'no_warnings': True,
+            'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.extract_info(url, download=True)
@@ -692,6 +694,7 @@ if __name__ == "__main__":
     parser.add_argument("--token", help="Facebook Access Token")
     parser.add_argument("--youtube-channel", help="قناة يوتيوب للمراقبة")
     parser.add_argument("--part-duration", type=int, default=1800, help="مدة كل جزء بالثواني (افتراضي 1800 = 30 دقيقة)")
+    parser.add_argument("--cookies", help="ملف cookies ليوتيوب")
     args = parser.parse_args()
     
     font = setup_environment()
@@ -716,6 +719,7 @@ if __name__ == "__main__":
         parallel=False,
         max_workers=1,
         max_part_duration=args.part_duration,
+        cookies_file=args.cookies or "",
     )
     
     if args.url:

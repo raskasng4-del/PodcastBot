@@ -32,14 +32,22 @@ jobs:
         env:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
+          if [ -n "$YOUTUBE_COOKIES" ]; then
+            echo "$YOUTUBE_COOKIES" | base64 -d > youtube_cookies.txt
+            COOKIES_ARG="--cookies youtube_cookies.txt"
+          else
+            COOKIES_ARG=""
+          fi
           python podcast_bot.py \
             --page-id "$FB_PAGE_ID" \
             --token "$FB_ACCESS_TOKEN" \
             --youtube-channel "$YOUTUBE_CHANNEL" \
             --bg abdo.png \
             --output output \
-            --part-duration 1800
+            --part-duration 1800 \
+            $COOKIES_ARG
 
       - name: 💾 حفظ الحالة (processed.txt) في المستودع
         run: |
