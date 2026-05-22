@@ -29,11 +29,6 @@ jobs:
           pip install -r requirements.txt
           python3 -c "import curl_cffi; print('✅ curl_cffi', curl_cffi.__version__)"
 
-      - name: 🔑 كتابة الكوكيز
-        env:
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
-        run: python3 -c "import base64,os; data=os.environ['YOUTUBE_COOKIES']; open('youtube_cookies.txt','wb').write(base64.b64decode(data)); print('Cookies:',len(base64.b64decode(data)),'bytes')"
-
       - name: 🤖 تشغيل البوت - مراقبة يوتيوب ونشر للفيسبوك
         env:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
@@ -45,8 +40,7 @@ jobs:
             --youtube-channel "$YOUTUBE_CHANNEL" \
             --bg abdo.png \
             --output output \
-            --part-duration 1800 \
-            --cookies youtube_cookies.txt
+            --part-duration 1800
 
       - name: 💾 حفظ الحالة (processed.txt) في المستودع
         run: |
