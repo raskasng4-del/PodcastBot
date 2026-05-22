@@ -12,6 +12,9 @@ on:
         description: "عنوان القصة"
         required: false
 
+env:
+  YOUTUBE_CHANNEL: "https://www.youtube.com/@samir-lail.mestapha-lherda/videos"
+
 jobs:
   process:
     runs-on: ubuntu-latest
@@ -26,7 +29,6 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-hosny-amiri
-          # تصليح ImageMagick policy باش يسمح لـ MoviePy يستعمل TextClip
           if [ -f /etc/ImageMagick-6/policy.xml ]; then
             sudo sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<policy domain="path" rights="read\|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml
           fi
@@ -38,14 +40,17 @@ jobs:
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           INPUT_URL: ${{ github.event.inputs.url || '' }}
           INPUT_STORY: ${{ github.event.inputs.story || '' }}
+          INPUT_YOUTUBE_CHANNEL: ${{ github.event.inputs.youtube_channel || env.YOUTUBE_CHANNEL }}
         run: |
           python podcast_bot.py \
             --page-id "$FB_PAGE_ID" \
             --token "$FB_ACCESS_TOKEN" \
             --url "$INPUT_URL" \
             --story "$INPUT_STORY" \
+            --youtube-channel "$INPUT_YOUTUBE_CHANNEL" \
             --bg abdo.png \
-            --output output
+            --output output \
+            --part-duration 1800
 
       - name: 📥 رفع الفيديو كـ Artifact
         uses: actions/upload-artifact@v4

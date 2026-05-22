@@ -69,6 +69,9 @@ class Config:
     fade_duration: float = 1.0
     video_bitrate: str = "500k"
     audio_bitrate: str = "96k"
+    source_youtube_channel: str = ""
+    state_file: str = "processed.txt"
+    max_part_duration: int = 1800  # 30 دقيقة لكل جزء
 
 
 @dataclass
@@ -233,7 +236,7 @@ def process_audio(input_path: str, index: int, config: Config) -> Optional[str]:
     return None
 
 
-def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
+def create_video(audio_path: str, index: int, config: Config, story_title: str = None) -> Optional[str]:
     try:
         audio = AudioFileClip(audio_path)
         duration = audio.duration
@@ -259,7 +262,7 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
             except Exception:
                 pass
 
-        video_text = f"{config.story_title} | الحلقة ({index})"
+        video_text = f"{story_title or config.story_title} | الحلقة ({index})"
         try:
             import arabic_reshaper
             from bidi.algorithm import get_display
@@ -373,6 +376,140 @@ def upload_to_facebook(video_path: str, index: int, config: Config) -> Optional[
             time.sleep(attempt * 10)
     
     return None
+
+
+def load_processed_ids(state_file: str) -> set:
+    if not os.path.exists(state_file):
+        return set()
+    with open(state_file) as f:
+        return {line.strip() for line in f if line.strip() and not line.startswith('#')}
+
+
+def save_processed_id(state_file: str, video_id: str):
+    with open(state_file, 'a') as f:
+        f.write(f"{video_id}\n")
+
+
+def fetch_youtube_videos(channel_url: str, max_results: int = 5) -> list:
+    try:
+        cmd = ['yt-dlp', '--flat-playlist', '--dump-json',
+               '--playlist-end', str(max_results), channel_url]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        videos = []
+        for line in result.stdout.strip().split('\n'):
+            if not line:
+                continue
+            d = json.loads(line)
+            thumbnail = d.get('thumbnail', '')
+            videos.append({
+                'id': d['id'],
+                'title': d.get('title', 'بدون عنوان'),
+                'duration': d.get('duration', 0),
+                'url': d.get('webpage_url', f"https://youtube.com/watch?v={d['id']}"),
+                'thumbnail': thumbnail,
+            })
+        return videos
+    except Exception as e:
+        log.error(f"❌ فشل جلب فيديوهات يوتيوب: {e}")
+        return []
+
+
+def process_youtube_video(video: dict, episode_start: int, config: Config) -> list:
+    tmp_dir = "temp"
+    os.makedirs(tmp_dir, exist_ok=True)
+    
+    vid = video['id']
+    title = video['title']
+    duration = video['duration']
+    url = video['url']
+    part_sec = config.max_part_duration
+    num_parts = max(1, int(duration / part_sec) + (1 if duration % part_sec > 60 else 0))
+    
+    log.info(f"\n{'='*50}")
+    log.info(f"🎬 يوتيوب: {title}")
+    log.info(f"⏱️ {duration//3600}h{(duration%3600)//60}m | نقسمو على {num_parts} أجزاء")
+    log.info(f"{'='*50}")
+    
+    audio_path = None
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s',
+            'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
+            'quiet': True, 'no_warnings': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(url, download=True)
+        audio_path = f'{tmp_dir}/yt_{vid}.mp3'
+        if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 1000:
+            log.error(f"❌ فشل تحميل الصوت: {url}")
+            return []
+    except Exception as e:
+        log.error(f"❌ خطأ في تحميل {url}: {e}")
+        return []
+    
+    results = []
+    for part in range(num_parts):
+        ep_num = episode_start + part
+        start_sec = part * part_sec
+        
+        log.info(f"\n--- الجزء {part+1}/{num_parts} -> الحلقة ({ep_num}) ---")
+        
+        part_audio = f'{tmp_dir}/part_{vid}_{part}.mp3'
+        try:
+            subprocess.run(
+                ['ffmpeg', '-i', audio_path, '-ss', str(start_sec),
+                 '-t', str(part_sec), '-y', part_audio],
+                capture_output=True, timeout=600
+            )
+        except Exception as e:
+            log.warning(f"⚠️ فشل قطع الجزء {part}: {e}")
+            continue
+        
+        if not os.path.exists(part_audio) or os.path.getsize(part_audio) < 1000:
+            continue
+        
+        enhanced = f'{tmp_dir}/enh_{vid}_{part}.mp3'
+        filters = []
+        if config.audio_volume != 1.0:
+            filters.append(f"volume={config.audio_volume}")
+        if config.audio_speed != 1.0:
+            filters.append(f"atempo={config.audio_speed}")
+        if config.pitch_shift != 1.0:
+            filters.append(f"asetrate=48000*{config.pitch_shift},aresample=48000")
+        filters.append(f"highpass=f={config.eq_highpass},lowpass=f={config.eq_lowpass}")
+        try:
+            subprocess.run(
+                ['ffmpeg', '-i', part_audio, '-af', ','.join(filters), '-y', enhanced],
+                capture_output=True, timeout=300
+            )
+        except Exception as e:
+            log.warning(f"⚠️ فشل معالجة الصوت الجزء {part}: {e}")
+            continue
+        
+        video_output = create_video(enhanced, ep_num, config, story_title=title)
+        for f in [part_audio, enhanced]:
+            try:
+                os.remove(f)
+            except:
+                pass
+        
+        if video_output:
+            fb_id = upload_to_facebook(video_output, ep_num, config)
+            if fb_id:
+                save_processed_id(config.state_file, f"{vid}:{part}")
+                results.append(EpisodeResult(index=ep_num, url=url, success=True, facebook_id=fb_id))
+            else:
+                results.append(EpisodeResult(index=ep_num, url=url, success=False, error="فشل الرفع"))
+        else:
+            results.append(EpisodeResult(index=ep_num, url=url, success=False, error="فشل تصنيع الفيديو"))
+    
+    try:
+        os.remove(audio_path)
+    except:
+        pass
+    
+    return results
 
 
 def process_episode(url: str, index: int, config: Config) -> EpisodeResult:
@@ -518,6 +655,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", help="مجلد الإخراج")
     parser.add_argument("--page-id", help="Facebook Page ID")
     parser.add_argument("--token", help="Facebook Access Token")
+    parser.add_argument("--youtube-channel", help="قناة يوتيوب للمراقبة")
+    parser.add_argument("--part-duration", type=int, default=1800, help="مدة كل جزء بالثواني (افتراضي 1800 = 30 دقيقة)")
     args = parser.parse_args()
     
     font = setup_environment()
@@ -529,6 +668,8 @@ if __name__ == "__main__":
         log.error("❌ يجب تعيين Access Token via --token أو متغير FB_ACCESS_TOKEN")
         sys.exit(1)
     
+    yt_channel = args.youtube_channel or os.environ.get("INPUT_YOUTUBE_CHANNEL") or ""
+    
     config = Config(
         story_title=args.story or "قصة حمزة",
         description=args.desc or "💔 حبيتها وبغيت نتزوج بيها… ولكن الحقيقة صدمتني 😱 | قصة حمزة",
@@ -539,12 +680,32 @@ if __name__ == "__main__":
         font_path=font,
         parallel=False,
         max_workers=1,
+        max_part_duration=args.part_duration,
     )
     
     if args.url:
         run_bot(config, [args.url])
     elif args.urls:
         run_bot(config, args.urls)
+    elif yt_channel:
+        processed = load_processed_ids(config.state_file)
+        videos = fetch_youtube_videos(yt_channel)
+        new_videos = [v for v in videos if f"{v['id']}:0" not in processed and
+                      not any(p.startswith(v['id']) for p in processed)]
+        
+        if not new_videos:
+            log.info("✅ ماعندكش فيديوهات جديدة فالقناة")
+            sys.exit(0)
+        
+        log.info(f"🎯 لقينا {len(new_videos)} فيديو جديد")
+        episode_num = 1
+        
+        for v in reversed(new_videos):
+            results = process_youtube_video(v, episode_num, config)
+            episode_num += len(results)
+            if results:
+                ok = sum(1 for r in results if r.success)
+                log.info(f"📊 {v['title'][:40]}: {ok}/{len(results)} أجزاء منشورة")
     else:
         raw_urls = [
             "", "", "", "", "", "", "",
