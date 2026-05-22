@@ -67,8 +67,8 @@ class Config:
     text_size: int = 45
     fps: int = 24
     fade_duration: float = 1.0
-    video_bitrate: str = "1500k"
-    audio_bitrate: str = "128k"
+    video_bitrate: str = "500k"
+    audio_bitrate: str = "96k"
 
 
 @dataclass
@@ -346,7 +346,7 @@ def upload_to_facebook(video_path: str, index: int, config: Config) -> Optional[
                 
                 files = {'source': (f'video_{index}.mp4', f, 'video/mp4')}
                 r = requests.post(
-                    f"https://graph-video.facebook.com/v22.0/{config.page_id}/videos",
+                    f"https://graph.facebook.com/v22.0/{config.page_id}/videos",
                     data=data, files=files, timeout=600
                 )
                 log.info(f"   رمز الحالة: {r.status_code}")

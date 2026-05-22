@@ -74,7 +74,7 @@ def process_podcast_fast(url, title, index):
 
         ai_description = generate_ai_description(title, index)
         
-        fb_url = f"https://graph-video.facebook.com/v18.0/{PAGE_ID}/videos"
+        fb_url = f"https://graph.facebook.com/v22.0/{PAGE_ID}/videos"
         with open(final_output, 'rb') as f:
             payload = {'description': ai_description, 'access_token': FB_ACCESS_TOKEN, 'published': 'true'}
             res = requests.post(fb_url, data=payload, files={'source': f}).json()
