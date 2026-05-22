@@ -102,7 +102,6 @@ def setup_environment():
         "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoKufiArabic-Bold.ttf",
         "/usr/share/fonts/truetype/noto/NotoKufiArabic-Regular.ttf",
-        "/usr/share/fonts/google-noto-vf/NotoNaskhArabic[wght].ttf",
         "/usr/share/fonts/truetype/cairo/Cairo-Bold.ttf",
         "/usr/share/fonts/opentype/cairo/Cairo-Bold.otf",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "Cairo-Bold.ttf"),
@@ -128,7 +127,7 @@ def setup_environment():
             for line in result.stdout.split('\n'):
                 if 'file:' in line:
                     path = line.split('"')[1] if '"' in line else ''
-                    if path and os.path.exists(path):
+                    if path and os.path.exists(path) and '[' not in path:
                         font_found = path
                         log.info(f"✅ تم العثور على خط عربي: {font_found}")
                         break
