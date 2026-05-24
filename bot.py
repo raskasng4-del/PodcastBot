@@ -21,7 +21,8 @@ PAGE_ID = os.environ.get("FB_PAGE_ID", "")
 FB_ACCESS_TOKEN = os.environ.get("FB_ACCESS_TOKEN", "")
 
 image_path = "abdo.png"
-save_path = "Podcast_Abdo_Samir"
+# 🛠️ تم التعديل هنا باش GitHub يلقى الفيديوهات
+save_path = "output"
 os.makedirs(save_path, exist_ok=True)
 
 groq_client = Groq(api_key=GROQ_API_KEY)
