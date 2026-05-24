@@ -15,7 +15,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          # ✅ تم التحديث لنسخة 3.11 باش يخدم curl_cffi بلا مشاكل
+          python-version: '3.11'
 
       - name: Install System Dependencies
         run: |
