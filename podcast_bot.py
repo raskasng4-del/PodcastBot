@@ -141,14 +141,13 @@ def process_youtube_video(video: dict, episode_start: int, config: Config) -> li
     duration = video.get('duration', 0)
     
     try:
-        # ✅ هاهي البلاصة اللي زدنا فيها قراءة الكوكيز والتخفي
         ydl_opts = {
             'format': 'bestaudio/best', 
             'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s', 
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 
             'quiet': True,
             'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
-            'impersonate': 'chrome'
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -207,7 +206,6 @@ if __name__ == "__main__":
     )
     
     if args.url:
-        # يلا عطيناه رابط فـ GitHub Actions غيخدمو هنا نيشان
         log.info(f"🎯 غنخدمو على هاد الرابط: {args.url}")
         process_youtube_video({'id': 'test_vid', 'url': args.url, 'duration': 0}, 1, config)
     elif yt_channel:
