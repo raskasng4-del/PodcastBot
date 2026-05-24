@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       test_url:
-        description: '🔗 حط رابط فيديو يوتيوب هنا للتجربة (إلى خليتيه خاوي غادي يقلب القناة كاملة)'
+        description: '🔗 حط رابط فيديو يوتيوب هنا للتجربة'
         required: false
         type: string
 
@@ -36,12 +36,12 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
-          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           TEST_URL: ${{ github.event.inputs.test_url }}
         run: |
-          # هاد السطر كيفرض الصيغة الصحيحة ديال الكوكيز باش يقبلهم يوتيوب
-          echo "# Netscape HTTP Cookie File" > cookies.txt
-          echo "$YOUTUBE_COOKIES" >> cookies.txt
+          # هادي أحسن طريقة باش السطورة ديال الكوكيز يبقاو مقادين بلا ما يتخربقو
+          cat << 'EOF' > cookies.txt
+          ${{ secrets.YOUTUBE_COOKIES }}
+          EOF
           
           if [ -n "$TEST_URL" ]; then
             echo "🚀 غادي نجربو هاد الفيديو بالضبط: $TEST_URL"
