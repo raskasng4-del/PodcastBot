@@ -39,7 +39,10 @@ jobs:
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
           TEST_URL: ${{ github.event.inputs.test_url }}
         run: |
-          echo "$YOUTUBE_COOKIES" > cookies.txt
+          # هاد السطر كيفرض الصيغة الصحيحة ديال الكوكيز باش يقبلهم يوتيوب
+          echo "# Netscape HTTP Cookie File" > cookies.txt
+          echo "$YOUTUBE_COOKIES" >> cookies.txt
+          
           if [ -n "$TEST_URL" ]; then
             echo "🚀 غادي نجربو هاد الفيديو بالضبط: $TEST_URL"
             python podcast_bot.py --cookies cookies.txt --url "$TEST_URL"
