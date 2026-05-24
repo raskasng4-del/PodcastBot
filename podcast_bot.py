@@ -146,7 +146,7 @@ def process_youtube_video(video: dict, episode_start: int, config: Config) -> li
             'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s', 
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 
             'quiet': True,
-            'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
+            'cookiefile': None,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
