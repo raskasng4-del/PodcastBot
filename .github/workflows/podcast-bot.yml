@@ -15,13 +15,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          # ✅ تم التحديث لنسخة 3.11 باش يخدم curl_cffi بلا مشاكل
           python-version: '3.11'
 
+      # زدنا nodejs باش نعاونو البوت يتخطى حماية يوتيوب
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick
+          sudo apt-get install -y ffmpeg imagemagick nodejs
 
       - name: Install Python Dependencies
         run: |
@@ -32,5 +32,8 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          python podcast_bot.py
+          # هاد السطر كيصاوب ملف الكوكيز باش يقراه البوت
+          echo "$YOUTUBE_COOKIES" > cookies.txt
+          python podcast_bot.py --cookies cookies.txt
