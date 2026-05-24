@@ -29,7 +29,6 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          # هاد السطر كيصلح المشكل: كيحيد التقييد بالنسخة القديمة باش يتبث أحدث نسخة
           sed -i 's/curl_cffi==0.14.0/curl_cffi/g' requirements.txt
           pip install -r requirements.txt
 
@@ -39,10 +38,9 @@ jobs:
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
           TEST_URL: ${{ github.event.inputs.test_url }}
+          YT_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          cat << 'EOF' > cookies.txt
-          ${{ secrets.YOUTUBE_COOKIES }}
-          EOF
+          echo "$YT_COOKIES" > cookies.txt
           
           if [ -n "$TEST_URL" ]; then
             echo "🚀 غادي نجربو هاد الفيديو بالضبط: $TEST_URL"
