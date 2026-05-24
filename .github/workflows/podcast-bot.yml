@@ -12,7 +12,8 @@ on:
 
 jobs:
   process:
-    runs-on: ubuntu-latest
+    # 🔴 السر هنا: استعملنا سيرفور مستقر عوض أحدث واحد باش نتفاداو المشاكل
+    runs-on: ubuntu-22.04 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,7 +21,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          # 🔴 نسخة بايثون 3.10 متوافقة 100% مع المكتبات ديالك
+          python-version: '3.10'
 
       - name: Install System Dependencies
         run: |
@@ -29,8 +31,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          # هاد السطر كيصلح المشكل: كيحيد التقييد بالنسخة القديمة باش يتبث أحدث نسخة
-          sed -i 's/curl_cffi==0.14.0/curl_cffi/g' requirements.txt
+          # دابا غادي يتانستالا كلشي عادي بلا مشاكل
           pip install -r requirements.txt
 
       - name: Run Podcast Bot
