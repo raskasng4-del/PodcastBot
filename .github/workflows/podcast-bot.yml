@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 */12 * * *'
   workflow_dispatch:
+    inputs:
+      test_url:
+        description: '🔗 حط رابط فيديو يوتيوب هنا للتجربة (إلى خليتيه خاوي غادي يقلب القناة كاملة)'
+        required: false
+        type: string
 
 jobs:
   process:
@@ -17,7 +22,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      # زدنا nodejs باش نعاونو البوت يتخطى حماية يوتيوب
       - name: Install System Dependencies
         run: |
           sudo apt-get update
@@ -33,7 +37,13 @@ jobs:
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
           YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
           YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+          TEST_URL: ${{ github.event.inputs.test_url }}
         run: |
-          # هاد السطر كيصاوب ملف الكوكيز باش يقراه البوت
           echo "$YOUTUBE_COOKIES" > cookies.txt
-          python podcast_bot.py --cookies cookies.txt
+          if [ -n "$TEST_URL" ]; then
+            echo "🚀 غادي نجربو هاد الفيديو بالضبط: $TEST_URL"
+            python podcast_bot.py --cookies cookies.txt --url "$TEST_URL"
+          else
+            echo "🔍 غادي نقلبو القناة كاملة..."
+            python podcast_bot.py --cookies cookies.txt
+          fi
