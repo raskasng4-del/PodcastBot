@@ -29,6 +29,8 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
+          # هاد السطر كيصلح المشكل: كيحيد التقييد بالنسخة القديمة باش يتبث أحدث نسخة
+          sed -i 's/curl_cffi==0.14.0/curl_cffi/g' requirements.txt
           pip install -r requirements.txt
 
       - name: Run Podcast Bot
@@ -38,7 +40,6 @@ jobs:
           YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
           TEST_URL: ${{ github.event.inputs.test_url }}
         run: |
-          # هادي أحسن طريقة باش السطورة ديال الكوكيز يبقاو مقادين بلا ما يتخربقو
           cat << 'EOF' > cookies.txt
           ${{ secrets.YOUTUBE_COOKIES }}
           EOF
