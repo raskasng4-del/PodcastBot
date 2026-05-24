@@ -4,11 +4,8 @@ import time
 import json
 import subprocess
 import logging
-from datetime import datetime
 from typing import Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-
 import requests
 import yt_dlp
 from PIL import Image as PILImage
@@ -20,16 +17,11 @@ log = logging.getLogger("PodcastBot")
 
 @dataclass
 class Config:
-    story_title: str = ""
-    description: str = ""
     page_id: str = ""
     access_token: str = ""
     bg_image_path: str = "abdo.png"
     output_dir: str = "output"
-    publish_now: bool = True
-    publish_time: Optional[str] = None
     retry_count: int = 3
-    skip_existing: bool = True
     audio_volume: float = 1.5
     audio_speed: float = 1.07
     pitch_shift: float = 0.96
@@ -44,14 +36,6 @@ class Config:
     waveform_color: str = "#e94560"
     waveform_height: int = 120
     cookies_file: str = ""
-
-@dataclass
-class EpisodeResult:
-    index: int
-    url: str
-    success: bool
-    facebook_id: Optional[str] = None
-    error: Optional[str] = None
 
 def make_waveform(audio_path: str, index: int, config: Config) -> Optional[str]:
     tmp_dir = "temp"
@@ -88,8 +72,6 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
                              .set_position(('center', 'bottom')))
                 clips.append(wave_clip)
 
-        # تم إزالة النص (العنوان) من الفيديو حسب طلبك
-
         video = CompositeVideoClip(clips).set_audio(audio)
         os.makedirs(config.output_dir, exist_ok=True)
         output_path = os.path.join(config.output_dir, f"Abdo_Samir_Pro_{index}.mp4")
@@ -109,7 +91,7 @@ def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
     return None
 
 def upload_to_facebook(video_path: str, index: int, config: Config, custom_desc: str = None) -> Optional[str]:
-    final_desc = custom_desc if custom_desc else config.description
+    final_desc = custom_desc if custom_desc else "قصص واقعية وحصرية 🔥\n\n#قصص_واقعية #بودكاست_مغربي"
     description = f"{final_desc}\n\nالحلقة ({index})"
     
     for attempt in range(1, config.retry_count + 1):
@@ -122,6 +104,8 @@ def upload_to_facebook(video_path: str, index: int, config: Config, custom_desc:
                 if "id" in result:
                     log.info(f"✅ الحلقة {index} منشورة! ID: {result['id']}")
                     return result['id']
+                else:
+                    log.warning(f"⚠️ مشكل مع فيسبوك: {result}")
         except Exception as e:
             log.warning(f"⚠️ خطأ رفع: {e}")
         time.sleep(10)
@@ -150,20 +134,35 @@ def fetch_youtube_videos(channel_url: str, max_results: int = 5) -> list:
 def process_youtube_video(video: dict, episode_start: int, config: Config) -> list:
     tmp_dir = "temp"
     os.makedirs(tmp_dir, exist_ok=True)
-    vid, duration, url = video['id'], video['duration'], video['url']
-    num_parts = max(1, int(duration / config.max_part_duration) + (1 if duration % config.max_part_duration > 60 else 0))
+    vid, url = video['id'], video['url']
     
-    log.info(f"🎬 معالجة: {video['title']} ({num_parts} أجزاء)")
+    log.info(f"🎬 كنجبدو المعلومات ديال الفيديو...")
     original_description = ""
+    duration = video.get('duration', 0)
+    
     try:
-        ydl_opts = {'format': 'bestaudio/best', 'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s', 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 'quiet': True}
+        # ✅ هاهي البلاصة اللي زدنا فيها قراءة الكوكيز والتخفي
+        ydl_opts = {
+            'format': 'bestaudio/best', 
+            'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s', 
+            'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 
+            'quiet': True,
+            'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
+            'impersonate': 'chrome'
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             original_description = info.get('description', '')
+            if duration == 0:
+                duration = info.get('duration', 1800)
+                
         audio_path = f'{tmp_dir}/yt_{vid}.mp3'
     except Exception as e:
         log.error(f"❌ فشل تحميل {url}: {e}")
         return []
+    
+    num_parts = max(1, int(duration / config.max_part_duration) + (1 if duration % config.max_part_duration > 60 else 0))
+    log.info(f"⏱️ الفيديو غيتقسم لـ {num_parts} أجزاء")
     
     results = []
     for part in range(num_parts):
@@ -180,11 +179,18 @@ def process_youtube_video(video: dict, episode_start: int, config: Config) -> li
                 fb_id = upload_to_facebook(video_output, ep_num, config, custom_desc=original_description)
                 if fb_id:
                     save_processed_id(config.state_file, f"{vid}:{part}")
-                    results.append(EpisodeResult(ep_num, url, True, fb_id))
-        except: pass
+                    results.append(ep_num)
+        except Exception as e: 
+            log.error(f"❌ خطأ فالمونتاج: {e}")
     return results
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", help="رابط واحد")
+    parser.add_argument("--cookies", help="ملف كوكيز")
+    args = parser.parse_args()
+
     page_id = os.environ.get("FB_PAGE_ID")
     token = os.environ.get("FB_ACCESS_TOKEN")
     yt_channel = os.environ.get("YOUTUBE_CHANNEL")
@@ -197,9 +203,14 @@ if __name__ == "__main__":
         page_id=page_id,
         access_token=token,
         max_part_duration=1800,
+        cookies_file=args.cookies or ""
     )
     
-    if yt_channel:
+    if args.url:
+        # يلا عطيناه رابط فـ GitHub Actions غيخدمو هنا نيشان
+        log.info(f"🎯 غنخدمو على هاد الرابط: {args.url}")
+        process_youtube_video({'id': 'test_vid', 'url': args.url, 'duration': 0}, 1, config)
+    elif yt_channel:
         processed = load_processed_ids(config.state_file)
         videos = fetch_youtube_videos(yt_channel)
         new_videos = [v for v in videos if f"{v['id']}:0" not in processed and not any(p.startswith(v['id']) for p in processed)]
