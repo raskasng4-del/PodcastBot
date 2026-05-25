@@ -68,9 +68,7 @@ jobs:
             echo "🚀 وضع التجربة: $TEST_URL"
             python podcast_bot.py \
               $COOKIES_FILE \
-              --url "$TEST_URL" \
-              --title "${TEST_TITLE:-بودكاست عبدو سمير}" \
-              --index "${TEST_INDEX:-1}"
+              --url "$TEST_URL"
           else
             echo "🔍 وضع تلقائي — كنجبدو القناة كاملة"
             python podcast_bot.py $COOKIES_FILE
