@@ -1,224 +1,356 @@
 import os
 import sys
-import time
-import json
+import argparse
 import subprocess
 import logging
-from typing import Optional
-from dataclasses import dataclass
-import requests
+import traceback
 import yt_dlp
+import requests
 from PIL import Image as PILImage
 PILImage.ANTIALIAS = PILImage.LANCZOS
 from moviepy.editor import *
+from moviepy.config import change_settings
+import arabic_reshaper
+from bidi.algorithm import get_display
+from groq import Groq
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)-8s | %(message)s')
-log = logging.getLogger("PodcastBot")
+# ⚙️ إعدادات اللوغ
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(message)s'
+)
 
-@dataclass
-class Config:
-    page_id: str = ""
-    access_token: str = ""
-    bg_image_path: str = "abdo.png"
-    output_dir: str = "output"
-    retry_count: int = 3
-    audio_volume: float = 1.5
-    audio_speed: float = 1.07
-    pitch_shift: float = 0.96
-    eq_highpass: int = 80
-    eq_lowpass: int = 7500
-    fps: int = 24
-    video_bitrate: str = "500k"
-    audio_bitrate: str = "96k"
-    state_file: str = "processed.txt"
-    max_part_duration: int = 1800 
-    show_waveform: bool = True
-    waveform_color: str = "#e94560"
-    waveform_height: int = 120
-    cookies_file: str = ""
+# ⚙️ إعدادات النظام
+change_settings({"IMAGEMAGICK_BINARY": r"/usr/bin/convert"})
 
-def make_waveform(audio_path: str, index: int, config: Config) -> Optional[str]:
-    tmp_dir = "temp"
-    os.makedirs(tmp_dir, exist_ok=True)
-    out = f'{tmp_dir}/wave_{index}.mp4'
+# 🔑 المفاتيح من متغيرات البيئة
+GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
+PAGE_ID         = os.environ.get("FB_PAGE_ID", "")
+FB_ACCESS_TOKEN = os.environ.get("FB_ACCESS_TOKEN", "")
+
+image_path = "abdo.png"
+save_path  = "output"
+os.makedirs(save_path, exist_ok=True)
+
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+
+# ─────────────────────────────────────────────
+# تحميل الصوت — بدون كوكيز، بمحاولتين
+# ─────────────────────────────────────────────
+def download_audio(url, index, cookiefile=None):
+    base_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'raw_{index}.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'quiet': False,
+        'no_warnings': False,
+    }
+
+    if cookiefile and os.path.exists(cookiefile) and os.path.getsize(cookiefile) > 10:
+        base_opts['cookiefile'] = cookiefile
+        logging.info(f"🍪 غنستعملو الكوكيز: {cookiefile}")
+
+    attempts = [
+        {
+            **base_opts,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios'],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+            },
+        },
+        {
+            **base_opts,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['web_creator'],
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+            },
+        },
+        {
+            **base_opts,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android'],
+                }
+            },
+            'http_headers': {
+                'User-Agent': 'com.google.android.youtube/17.36.4 (Linux; U; Android 12; GB) gzip',
+            },
+        },
+    ]
+
+    for i, opts in enumerate(attempts, 1):
+        try:
+            logging.info(f"🎯 محاولة {i}/3 لتحميل: {url}")
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.extract_info(url, download=True)
+
+            raw_file = f"raw_{index}.mp3"
+            if not os.path.exists(raw_file):
+                for ext in ['webm', 'opus', 'm4a', 'wav', 'ogg']:
+                    alt = f"raw_{index}.{ext}"
+                    if os.path.exists(alt):
+                        logging.info(f"🔄 تحويل {alt} → {raw_file}")
+                        os.rename(alt, raw_file)
+                        break
+
+            if os.path.exists(raw_file):
+                logging.info(f"✅ تم تحميل الصوت بنجاح: {raw_file}")
+                return raw_file
+            else:
+                logging.warning(f"⚠️ المحاولة {i} — الملف ما وجدش بعد التحميل")
+
+        except Exception:
+            logging.error(f"❌ المحاولة {i} فشلت:\n{traceback.format_exc()}")
+
+    raise Exception("❌ فشل تحميل الصوت بجميع الطرق الثلاث")
+
+
+# ─────────────────────────────────────────────
+# توليد الوصف بـ AI
+# ─────────────────────────────────────────────
+def generate_ai_description(title, index):
+    prompt = (
+        f"اكتب وصف مشوق وجذاب جدا بالدارجة المغربية للحلقة رقم ({index}) من '{title}'. "
+        f"الوصف يجب أن يثير الفضول ويجعل المتابع يرغب في مشاهدة الفيديو. "
+        f"في النهاية، أضف 4 هاشتاغات مناسبة للفيسبوك. "
+        f"لا تكتب أي مقدمات أو شروحات، أعطني الوصف والهاشتاغات مباشرة."
+    )
     try:
-        subprocess.run([
-            'ffmpeg', '-i', audio_path,
-            '-filter_complex',
-            f"color=c=black@0:s=1280x{config.waveform_height}:r=25,format=rgba[bg];"
-            f"[0:a]showwaves=s=1280x{config.waveform_height}:mode=cline:rate=25:colors={config.waveform_color}[waves];"
-            f"[bg][waves]overlay=format=auto,format=rgba",
-            '-an', '-c:v', 'png', '-y', out
-        ], capture_output=True, timeout=600)
-        if os.path.exists(out): return out
-    except: pass
-    return None
-
-def create_video(audio_path: str, index: int, config: Config) -> Optional[str]:
-    try:
-        audio = AudioFileClip(audio_path)
-        duration = audio.duration
-        if duration < 1: return None
-
-        bg = ImageClip(config.bg_image_path).set_duration(duration)
-        bg = bg.resize(lambda t: 0.97 + 0.06 * t / duration)
-        clips = [bg]
-
-        if config.show_waveform:
-            wave_path = make_waveform(audio_path, index, config)
-            if wave_path:
-                wave_clip = (VideoFileClip(wave_path, has_mask=True)
-                             .set_duration(duration)
-                             .set_position(('center', 'bottom')))
-                clips.append(wave_clip)
-
-        video = CompositeVideoClip(clips).set_audio(audio)
-        os.makedirs(config.output_dir, exist_ok=True)
-        output_path = os.path.join(config.output_dir, f"Abdo_Samir_Pro_{index}.mp4")
-        
-        video.write_videofile(
-            output_path, fps=config.fps,
-            codec="libx264", audio_codec="aac",
-            preset="medium", bitrate=config.video_bitrate,
-            audio_bitrate=config.audio_bitrate,
-            threads=2, verbose=False, logger=None
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "أنت صانع محتوى مغربي محترف وكاتب نصوص إبداعي لمقاطع البودكاست على فيسبوك."
+                },
+                {"role": "user", "content": prompt}
+            ],
+            model="llama3-70b-8192",
+            temperature=0.7,
         )
+        return chat_completion.choices[0].message.content.strip()
+    except Exception as e:
+        logging.error(f"❌ خطأ في Groq: {e}")
+        return f"تتمة {title} - شنو وقع فهاد الحلقة؟ 🤔\n\nالحلقة ({index})\n\n#قصص_واقعية #بودكاست_مغربي"
+
+
+# ─────────────────────────────────────────────
+# معالجة حلقة واحدة
+# ─────────────────────────────────────────────
+def process_episode(url, title, index, cookiefile=None):
+    raw_file      = None
+    enhanced_file = f"enhanced_{index}.mp3"
+    wave_file     = f"wave_{index}.mp4"
+
+    try:
+        # 1️⃣ تحميل الصوت
+        raw_file = download_audio(url, index, cookiefile)
+
+        # 2️⃣ تحسين الصوت
+        logging.info(f"🎵 تحسين الصوت للحلقة {index}...")
+        ret = os.system(
+            f"ffmpeg -i {raw_file} "
+            f"-af 'volume=1.5,atempo=1.07,asetrate=48000*0.96,aresample=48000,"
+            f"highpass=f=80,lowpass=f=7500' "
+            f"-y {enhanced_file} 2>/dev/null"
+        )
+        if ret != 0 or not os.path.exists(enhanced_file):
+            logging.warning("⚠️ فشل تحسين الصوت، غنستعملو الأصلي")
+            os.rename(raw_file, enhanced_file)
+            raw_file = None
+
+        audio = AudioFileClip(enhanced_file)
+
+        # 3️⃣ الخلفية
+        bg = ImageClip(image_path).set_duration(audio.duration)
+        bg = bg.resize(lambda t: 0.97 + 0.06 * t / audio.duration)
+
+        # 4️⃣ النص العربي
+        video_text    = f"{title} | الحلقة ({index})"
+        reshaped_text = arabic_reshaper.reshape(video_text)
+        bidi_text     = get_display(reshaped_text)
+        font_path     = '/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf'
+
+        txt_shadow = TextClip(
+            bidi_text, fontsize=45, color='black', font=font_path,
+            method='caption', size=(bg.w * 0.8, None)
+        ).set_duration(audio.duration).set_position(('center', 'bottom'))
+
+        txt = TextClip(
+            bidi_text, fontsize=45, color='white', font=font_path,
+            bg_color='rgba(0,0,0,0.6)', method='caption', size=(bg.w * 0.8, None)
+        ).set_duration(audio.duration).set_position(('center', 'bottom'))
+
+        # 5️⃣ موجات الصوت
+        clips = [bg, txt_shadow, txt]
+        try:
+            subprocess.run([
+                'ffmpeg', '-i', enhanced_file,
+                '-filter_complex',
+                "color=c=black@0:s=1280x120:r=24,format=rgba[bg];"
+                "[0:a]showwaves=s=1280x120:mode=cline:rate=24:colors=#e94560[waves];"
+                "[bg][waves]overlay=format=auto,format=rgba",
+                '-an', '-c:v', 'png', '-y', wave_file
+            ], capture_output=True, timeout=600)
+
+            if os.path.exists(wave_file):
+                wave_clip = VideoFileClip(wave_file, has_mask=True) \
+                    .set_duration(audio.duration) \
+                    .set_position(('center', 'bottom'))
+                clips.append(wave_clip)
+                logging.info("✅ موجات الصوت تضافت")
+        except Exception as e:
+            logging.warning(f"⚠️ موجات الصوت فشلات: {e}")
+
+        # 6️⃣ تجميع الفيديو
+        logging.info(f"🎬 كنجمع الفيديو للحلقة {index}...")
+        video        = CompositeVideoClip(clips).set_audio(audio)
+        video        = video.fadein(1).fadeout(1)
+        final_output = os.path.join(save_path, f"Abdo_Samir_Pro_{index}.mp4")
+
+        video.write_videofile(
+            final_output, fps=24,
+            codec="libx264", audio_codec="aac",
+            verbose=False, logger=None
+        )
+        logging.info(f"✅ الفيديو تجمع: {final_output}")
+
+        # 7️⃣ وصف AI
+        ai_description = generate_ai_description(title, index)
+
+        # 8️⃣ النشر على فيسبوك
+        logging.info("📤 كننشر على فيسبوك...")
+        fb_url = f"https://graph.facebook.com/v22.0/{PAGE_ID}/videos"
+        with open(final_output, 'rb') as f:
+            payload = {
+                'description': ai_description,
+                'access_token': FB_ACCESS_TOKEN,
+                'published': 'true'
+            }
+            res = requests.post(fb_url, data=payload, files={'source': f}).json()
+
+        # 9️⃣ تنظيف
         audio.close()
         video.close()
-        if os.path.exists(output_path): return output_path
+        for tmp in [raw_file, enhanced_file, wave_file]:
+            if tmp and os.path.exists(tmp):
+                os.remove(tmp)
+
+        if "id" in res:
+            logging.info(f"✅ الحلقة {index} تنشرات! ID: {res['id']}")
+            return True, f"✅ الحلقة {index} تنشرات بنجاح! ID: {res['id']}"
+        else:
+            logging.error(f"❌ فيسبوك رجع: {res}")
+            return False, f"❌ مشكل مع فيسبوك: {res}"
+
     except Exception as e:
-        log.error(f"❌ خطأ فيديو {index}: {e}")
-    return None
+        logging.error(f"❌ خطأ فالحلقة {index}:\n{traceback.format_exc()}")
+        for tmp in [raw_file, enhanced_file, wave_file]:
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except Exception:
+                    pass
+        return False, f"❌ خطأ فالحلقة {index}: {str(e)}"
 
-def upload_to_facebook(video_path: str, index: int, config: Config, custom_desc: str = None) -> Optional[str]:
-    final_desc = custom_desc if custom_desc else "قصص واقعية وحصرية 🔥\n\n#قصص_واقعية #بودكاست_مغربي"
-    description = f"{final_desc}\n\nالحلقة ({index})"
-    
-    for attempt in range(1, config.retry_count + 1):
-        try:
-            with open(video_path, 'rb') as f:
-                data = {'description': description, 'access_token': config.access_token, 'published': 'true'}
-                files = {'source': (f'video_{index}.mp4', f, 'video/mp4')}
-                r = requests.post(f"https://graph.facebook.com/v22.0/{config.page_id}/videos", data=data, files=files)
-                result = r.json()
-                if "id" in result:
-                    log.info(f"✅ الحلقة {index} منشورة! ID: {result['id']}")
-                    return result['id']
-                else:
-                    log.warning(f"⚠️ مشكل مع فيسبوك: {result}")
-        except Exception as e:
-            log.warning(f"⚠️ خطأ رفع: {e}")
-        time.sleep(10)
-    return None
 
-def load_processed_ids(state_file: str) -> set:
-    if not os.path.exists(state_file): return set()
-    with open(state_file) as f:
-        return {line.strip() for line in f if line.strip()}
-
-def save_processed_id(state_file: str, video_id: str):
-    with open(state_file, 'a') as f: f.write(f"{video_id}\n")
-
-def fetch_youtube_videos(channel_url: str, max_results: int = 5) -> list:
+# ─────────────────────────────────────────────
+# جلب آخر فيديوهات القناة
+# ─────────────────────────────────────────────
+def get_channel_videos(channel_url, max_videos=5):
+    ydl_opts = {
+        'quiet': True,
+        'extract_flat': True,
+        'playlistend': max_videos,
+        'extractor_args': {'youtube': {'player_client': ['ios']}},
+    }
     try:
-        cmd = ['yt-dlp', '--flat-playlist', '--dump-json', '--playlist-end', str(max_results), channel_url]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        videos = []
-        for line in result.stdout.strip().split('\n'):
-            if line:
-                d = json.loads(line)
-                videos.append({'id': d['id'], 'title': d.get('title', ''), 'duration': d.get('duration', 0), 'url': d.get('webpage_url', f"https://youtube.com/watch?v={d['id']}")})
-        return videos
-    except: return []
-
-def process_youtube_video(video: dict, episode_start: int, config: Config) -> list:
-    tmp_dir = "temp"
-    os.makedirs(tmp_dir, exist_ok=True)
-    vid, url = video['id'], video['url']
-    
-    log.info(f"🎬 كنجبدو المعلومات ديال الفيديو...")
-    original_description = ""
-    duration = video.get('duration', 0)
-    
-    try:
-        ydl_opts = {
-            'format': 'bestaudio/best', 
-            'outtmpl': f'{tmp_dir}/yt_{vid}.%(ext)s', 
-            'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}], 
-            'quiet': True,
-            # 🔴 هادو هما السطورة اللي كيحميو البوت من البلوكاج ديال يوتيوب
-            'cookiefile': config.cookies_file if config.cookies_file and os.path.exists(config.cookies_file) else None,
-            'impersonate': 'chrome'
-        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            original_description = info.get('description', '')
-            if duration == 0:
-                duration = info.get('duration', 1800)
-                
-        audio_path = f'{tmp_dir}/yt_{vid}.mp3'
-    except Exception as e:
-        log.error(f"❌ فشل تحميل {url}: {e}")
+            info = ydl.extract_info(channel_url, download=False)
+            entries = info.get('entries', [])
+            videos = []
+            for i, entry in enumerate(entries, 1):
+                vid_url = f"https://www.youtube.com/watch?v={entry['id']}"
+                vid_title = entry.get('title', f'حلقة {i}')
+                videos.append((str(i), vid_url, vid_title))
+            return videos
+    except Exception:
+        logging.error(f"❌ فشل جلب قناة:\n{traceback.format_exc()}")
         return []
-    
-    num_parts = max(1, int(duration / config.max_part_duration) + (1 if duration % config.max_part_duration > 60 else 0))
-    log.info(f"⏱️ الفيديو غيتقسم لـ {num_parts} أجزاء")
-    
-    results = []
-    for part in range(num_parts):
-        ep_num = episode_start + part
-        part_audio = f'{tmp_dir}/part_{vid}_{part}.mp3'
-        enhanced = f'{tmp_dir}/enh_{vid}_{part}.mp3'
-        try:
-            subprocess.run(['ffmpeg', '-i', audio_path, '-ss', str(part * config.max_part_duration), '-t', str(config.max_part_duration), '-y', part_audio], capture_output=True)
-            filters = f"volume={config.audio_volume},atempo={config.audio_speed},asetrate=48000*{config.pitch_shift},aresample=48000,highpass=f={config.eq_highpass},lowpass=f={config.eq_lowpass}"
-            subprocess.run(['ffmpeg', '-i', part_audio, '-af', filters, '-y', enhanced], capture_output=True)
-            
-            video_output = create_video(enhanced, ep_num, config)
-            if video_output:
-                fb_id = upload_to_facebook(video_output, ep_num, config, custom_desc=original_description)
-                if fb_id:
-                    save_processed_id(config.state_file, f"{vid}:{part}")
-                    results.append(ep_num)
-        except Exception as e: 
-            log.error(f"❌ خطأ فالمونتاج: {e}")
-    return results
 
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--url", help="رابط واحد")
-    parser.add_argument("--cookies", help="ملف كوكيز")
+
+# ─────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(description='Podcast Bot')
+    parser.add_argument('--url',     type=str, default=None,
+                        help='رابط فيديو يوتيوب للتجربة')
+    parser.add_argument('--cookies', type=str, default=None,
+                        help='مسار ملف الكوكيز')
+    parser.add_argument('--title',   type=str, default='بودكاست عبدو سمير',
+                        help='اسم البودكاست')
+    parser.add_argument('--index',   type=str, default='1',
+                        help='رقم الحلقة')
     args = parser.parse_args()
 
-    page_id = os.environ.get("FB_PAGE_ID")
-    token = os.environ.get("FB_ACCESS_TOKEN")
-    yt_channel = os.environ.get("YOUTUBE_CHANNEL")
-    
-    if not token or not page_id:
-        log.error("❌ الأسرار غير موجودة!")
-        sys.exit(1)
-        
-    config = Config(
-        page_id=page_id,
-        access_token=token,
-        max_part_duration=1800,
-        cookies_file=args.cookies or ""
-    )
-    
     if args.url:
-        log.info(f"🎯 غنخدمو على هاد الرابط: {args.url}")
-        process_youtube_video({'id': 'test_vid', 'url': args.url, 'duration': 0}, 1, config)
-    elif yt_channel:
-        processed = load_processed_ids(config.state_file)
-        videos = fetch_youtube_videos(yt_channel)
-        new_videos = [v for v in videos if f"{v['id']}:0" not in processed and not any(p.startswith(v['id']) for p in processed)]
-        
-        if not new_videos:
-            log.info("✅ لا توجد فيديوهات جديدة.")
-            sys.exit(0)
-            
-        episode_num = 1
-        for v in reversed(new_videos):
-            results = process_youtube_video(v, episode_num, config)
-            episode_num += len(results)
+        # ── وضع التجربة: رابط واحد مباشر
+        logging.info(f"🎯 غنخدمو على هاد الرابط: {args.url}")
+        logging.info("🎬 كنجبدو المعلومات ديال الفيديو...")
+        ok, msg = process_episode(
+            url=args.url,
+            title=args.title,
+            index=args.index,
+            cookiefile=args.cookies
+        )
+        print(msg)
+        sys.exit(0 if ok else 1)
+
+    else:
+        # ── وضع تلقائي: جلب القناة
+        channel = os.environ.get("YOUTUBE_CHANNEL", "")
+        if not channel:
+            logging.error("❌ ما حطيتيش YOUTUBE_CHANNEL فالـ secrets!")
+            sys.exit(1)
+
+        logging.info(f"🔍 كنجبدو فيديوهات القناة: {channel}")
+        videos = get_channel_videos(channel, max_videos=3)
+
+        if not videos:
+            logging.error("❌ ما لقيناش حتى فيديو فالقناة")
+            sys.exit(1)
+
+        success_count = 0
+        for index, url, title in videos:
+            logging.info(f"\n{'='*50}")
+            logging.info(f"📹 الحلقة {index}: {title}")
+            ok, msg = process_episode(
+                url=url,
+                title=title,
+                index=index,
+                cookiefile=args.cookies
+            )
+            print(msg)
+            if ok:
+                success_count += 1
+
+        logging.info(f"\n✨ انتهت الخدمة: {success_count}/{len(videos)} تنشرات بنجاح")
+        sys.exit(0 if success_count > 0 else 1)
+
+
+if __name__ == "__main__":
+    main()
