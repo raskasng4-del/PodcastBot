@@ -6,70 +6,64 @@ on:
   workflow_dispatch:
     inputs:
       test_url:
-        description: '🔗 حط رابط فيديو يوتيوب هنا للتجربة'
+        description: '🔗 رابط يوتيوب للتجربة'
         required: false
         type: string
       test_title:
-        description: '📝 اسم البودكاست (اختياري)'
+        description: '📝 اسم البودكاست'
         required: false
         default: 'بودكاست عبدو سمير'
-        type: string
-      test_index:
-        description: '🔢 رقم الحلقة (اختياري)'
-        required: false
-        default: '1'
         type: string
 
 jobs:
   process:
     runs-on: ubuntu-22.04
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg imagemagick nodejs
-          # فونت العربية مهم للنص فالفيديو
-          sudo apt-get install -y fonts-noto-core fonts-noto fonts-noto-extra || true
+          sudo apt-get install -y ffmpeg imagemagick fonts-noto-core
 
       - name: Install Python Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate PO Token
+        id: potoken
         run: |
-          pip install -r requirements.txt
+          pip install yt-dlp-pot-provider 2>/dev/null || true
+          # نجربو نولدو PO Token تلقائياً
+          python3 -c "
+          import subprocess, json, sys
+          try:
+              result = subprocess.run(
+                  ['python3', '-m', 'yt_dlp_pot_provider'],
+                  capture_output=True, text=True, timeout=30
+              )
+              print(result.stdout)
+          except Exception as e:
+              print(f'PO Token generation skipped: {e}', file=sys.stderr)
+          " || echo "PO Token not available"
 
       - name: Run Podcast Bot
         env:
-          GROQ_API_KEY:     ${{ secrets.GROQ_API_KEY }}
-          FB_PAGE_ID:       ${{ secrets.FB_PAGE_ID }}
-          FB_ACCESS_TOKEN:  ${{ secrets.FB_ACCESS_TOKEN }}
-          YOUTUBE_CHANNEL:  ${{ secrets.YOUTUBE_CHANNEL }}
-          TEST_URL:         ${{ github.event.inputs.test_url }}
-          TEST_TITLE:       ${{ github.event.inputs.test_title }}
-          TEST_INDEX:       ${{ github.event.inputs.test_index }}
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          FB_PAGE_ID:      ${{ secrets.FB_PAGE_ID }}
+          FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
+          YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
+          PO_TOKEN:        ${{ secrets.PO_TOKEN }}
         run: |
-          # ── كوكيز (اختيارية - لو فارغة مشكل) ──
-          COOKIES_FILE=""
-          if [ -n "${{ secrets.YOUTUBE_COOKIES }}" ]; then
-            echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
-            COOKIES_FILE="--cookies cookies.txt"
-            echo "🍪 الكوكيز موجودة"
-          else
-            echo "⚠️  ما كاينش YOUTUBE_COOKIES — غنجربو بدونهم"
-          fi
-
-          if [ -n "$TEST_URL" ]; then
-            echo "🚀 وضع التجربة: $TEST_URL"
+          if [ -n "${{ github.event.inputs.test_url }}" ]; then
+            echo "🚀 وضع التجربة: ${{ github.event.inputs.test_url }}"
             python podcast_bot.py \
-              $COOKIES_FILE \
-              --url "$TEST_URL"
+              --url "${{ github.event.inputs.test_url }}" \
+              --title "${{ github.event.inputs.test_title }}"
           else
-            echo "🔍 وضع تلقائي — كنجبدو القناة كاملة"
-            python podcast_bot.py $COOKIES_FILE
+            echo "🔍 وضع تلقائي"
+            python podcast_bot.py
           fi
