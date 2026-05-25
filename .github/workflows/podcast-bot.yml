@@ -9,11 +9,21 @@ on:
         description: '🔗 حط رابط فيديو يوتيوب هنا للتجربة'
         required: false
         type: string
+      test_title:
+        description: '📝 اسم البودكاست (اختياري)'
+        required: false
+        default: 'بودكاست عبدو سمير'
+        type: string
+      test_index:
+        description: '🔢 رقم الحلقة (اختياري)'
+        required: false
+        default: '1'
+        type: string
 
 jobs:
   process:
-    # 🔴 السر هنا: استعملنا سيرفور مستقر عوض أحدث واحد باش نتفاداو المشاكل
-    runs-on: ubuntu-22.04 
+    runs-on: ubuntu-22.04
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,34 +31,47 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          # 🔴 نسخة بايثون 3.10 متوافقة 100% مع المكتبات ديالك
           python-version: '3.10'
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick nodejs
+          # فونت العربية مهم للنص فالفيديو
+          sudo apt-get install -y fonts-noto-core fonts-noto fonts-noto-extra || true
 
       - name: Install Python Dependencies
         run: |
-          # دابا غادي يتانستالا كلشي عادي بلا مشاكل
           pip install -r requirements.txt
 
       - name: Run Podcast Bot
         env:
-          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
-          FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
-          YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
-          TEST_URL: ${{ github.event.inputs.test_url }}
+          GROQ_API_KEY:     ${{ secrets.GROQ_API_KEY }}
+          FB_PAGE_ID:       ${{ secrets.FB_PAGE_ID }}
+          FB_ACCESS_TOKEN:  ${{ secrets.FB_ACCESS_TOKEN }}
+          YOUTUBE_CHANNEL:  ${{ secrets.YOUTUBE_CHANNEL }}
+          TEST_URL:         ${{ github.event.inputs.test_url }}
+          TEST_TITLE:       ${{ github.event.inputs.test_title }}
+          TEST_INDEX:       ${{ github.event.inputs.test_index }}
         run: |
-          cat << 'EOF' > cookies.txt
-          ${{ secrets.YOUTUBE_COOKIES }}
-          EOF
-          
-          if [ -n "$TEST_URL" ]; then
-            echo "🚀 غادي نجربو هاد الفيديو بالضبط: $TEST_URL"
-            python podcast_bot.py --cookies cookies.txt --url "$TEST_URL"
+          # ── كوكيز (اختيارية - لو فارغة مشكل) ──
+          COOKIES_FILE=""
+          if [ -n "${{ secrets.YOUTUBE_COOKIES }}" ]; then
+            echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+            COOKIES_FILE="--cookies cookies.txt"
+            echo "🍪 الكوكيز موجودة"
           else
-            echo "🔍 غادي نقلبو القناة كاملة..."
-            python podcast_bot.py --cookies cookies.txt
+            echo "⚠️  ما كاينش YOUTUBE_COOKIES — غنجربو بدونهم"
+          fi
+
+          if [ -n "$TEST_URL" ]; then
+            echo "🚀 وضع التجربة: $TEST_URL"
+            python podcast_bot.py \
+              $COOKIES_FILE \
+              --url "$TEST_URL" \
+              --title "${TEST_TITLE:-بودكاست عبدو سمير}" \
+              --index "${TEST_INDEX:-1}"
+          else
+            echo "🔍 وضع تلقائي — كنجبدو القناة كاملة"
+            python podcast_bot.py $COOKIES_FILE
           fi
