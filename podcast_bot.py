@@ -51,6 +51,7 @@ def download_audio(url, index):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
             },
         }
+<<<<<<< Updated upstream
 
     attempts = [
         # 1: PO Token لو كاين — الأقوى
@@ -93,6 +94,29 @@ def download_audio(url, index):
     attempts = [a for a in attempts if a is not None]
 
     for i, opts in enumerate(attempts, 1):
+=======
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(url, download=True)
+        audio_path = f'{tmp_dir}/yt_{vid}.mp3'
+        if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 1000:
+            log.error(f"❌ فشل تحميل الصوت: {url}")
+            return []
+    except Exception as e:
+        log.error(f"❌ خطأ في تحميل {url}: {e}")
+        log.error(f"   النوع: {type(e).__name__}")
+        import traceback
+        log.error(f"   التفاصيل: {traceback.format_exc()[:500]}")
+        return []
+    
+    results = []
+    for part in range(num_parts):
+        ep_num = episode_start + part
+        start_sec = part * part_sec
+        
+        log.info(f"\n--- الجزء {part+1}/{num_parts} -> الحلقة ({ep_num}) ---")
+        
+        part_audio = f'{tmp_dir}/part_{vid}_{part}.mp3'
+>>>>>>> Stashed changes
         try:
             client = opts.get('extractor_args', {}).get('youtube', {}).get('player_client', ['unknown'])
             logging.info(f"🎯 محاولة {i}/{len(attempts)} — client: {client}")

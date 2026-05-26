@@ -1,0 +1,101 @@
+- main [ref=e125]:
+  - generic [ref=e137]:
+    - generic [ref=e142]:
+      - generic [ref=e145]:
+        - img "raskasng4-del" [ref=e146]
+        - generic "PodcastBot" [ref=e147]:
+          - strong [ref=e148]:
+            - link "PodcastBot" [ref=e149] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot
+        - generic [ref=e150]: Public
+      - list [ref=e152]:
+        - listitem [ref=e153]:
+          - button "Cannot fork raskasng4-del/PodcastBot" [ref=e154]:
+            - generic [ref=e155]:
+              - generic:
+                - img
+              - generic [ref=e156]:
+                - text: Fork
+                - generic [ref=e157]: "0"
+                - generic [ref=e158]: (0)
+        - listitem [ref=e159]:
+          - button "You can't star raskasng4-del/PodcastBot" [ref=e161]:
+            - generic [ref=e162]:
+              - generic:
+                - img
+              - generic [ref=e163]:
+                - text: Star
+                - generic [ref=e164]: "0"
+                - generic [ref=e165]: (0)
+    - generic [ref=e168]:
+      - generic [ref=e169]:
+        - generic [ref=e171]:
+          - img [ref=e174]
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - heading "Set up GitHub Copilot" [level=3] [ref=e179]
+              - paragraph [ref=e180]: Use GitHub's AI pair programmer to autocomplete suggestions as you code.
+            - link "Get started with GitHub Copilot" [ref=e183] [cursor=pointer]:
+              - /url: /github-copilot/signup
+              - generic [ref=e185]: Get started with GitHub Copilot
+        - generic [ref=e187]:
+          - img [ref=e190]
+          - generic [ref=e192]:
+            - generic [ref=e193]:
+              - heading "Add collaborators to this repository" [level=3] [ref=e194]
+              - paragraph [ref=e195]: Search for people using their GitHub username or email address.
+            - link "Invite collaborators" [ref=e198] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/settings/access
+              - generic [ref=e200]: Invite collaborators
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - heading "Quick setup — if you’ve done this kind of thing before" [level=3] [ref=e203]:
+            - strong [ref=e204]: Quick setup
+            - text: — if you’ve done this kind of thing before
+          - generic [ref=e207]:
+            - list "Clone protocol" [ref=e208]:
+              - listitem [ref=e209]:
+                - button "HTTPS" [ref=e210] [cursor=pointer]:
+                  - generic [ref=e212]: HTTPS
+              - listitem [ref=e213]:
+                - button "SSH" [ref=e214] [cursor=pointer]:
+                  - generic [ref=e216]: SSH
+            - generic [ref=e218]:
+              - textbox "Clone URL" [ref=e219]: https://github.com/raskasng4-del/PodcastBot.git
+              - button "Copy URL to clipboard" [ref=e220] [cursor=pointer]:
+                - img [ref=e221]
+          - paragraph [ref=e224]:
+            - text: Get started by
+            - link "creating a new file" [ref=e225] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/new/main
+            - text: or
+            - link "uploading an existing file" [ref=e226] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/upload/main
+            - text: . We recommend every repository include a
+            - link "README" [ref=e227] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/new/main?readme=1
+            - text: ","
+            - link "LICENSE" [ref=e228] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/new/main?filename=LICENSE.md
+            - text: ", and"
+            - link ".gitignore" [ref=e229] [cursor=pointer]:
+              - /url: /raskasng4-del/PodcastBot/new/main?filename=.gitignore
+            - text: .
+        - generic [ref=e230]:
+          - generic [ref=e231]:
+            - heading "…or create a new repository on the command line" [level=3] [ref=e232]
+            - generic [ref=e233]:
+              - code [ref=e235]: echo "# PodcastBot" >> README.md git init git add README.md git commit -m "first commit" git branch -M main git remote add origin https://github.com/raskasng4-del/PodcastBot.git git push -u origin main
+              - button "Copy create commands to clipboard" [ref=e236] [cursor=pointer]:
+                - img [ref=e237]
+          - generic [ref=e240]:
+            - heading "…or push an existing repository from the command line" [level=3] [ref=e241]
+            - generic [ref=e242]:
+              - code [ref=e244]: git remote add origin https://github.com/raskasng4-del/PodcastBot.git git branch -M main git push -u origin main
+              - button "Copy push commands to clipboard" [ref=e245] [cursor=pointer]:
+                - img [ref=e246]
+      - paragraph [ref=e249]:
+        - img [ref=e250]
+        - generic [ref=e252]:
+          - strong [ref=e253]: ProTip!
+          - text: Use the URL for this page when adding GitHub as a remote.
