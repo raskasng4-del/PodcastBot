@@ -1,61 +1,69 @@
-name: 🤖 Podcast Bot
+name: Podcast Bot Automation
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: '0 */12 * * *'
   workflow_dispatch:
-
-env:
-  YOUTUBE_CHANNEL: "https://www.youtube.com/@samir-lail.mestapha-lherda/videos"
+    inputs:
+      test_url:
+        description: '🔗 رابط يوتيوب للتجربة'
+        required: false
+        type: string
+      test_title:
+        description: '📝 اسم البودكاست'
+        required: false
+        default: 'بودكاست عبدو سمير'
+        type: string
 
 jobs:
   process:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
-
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          python-version: '3.10'
 
-      - name: 📦 تثبيت
+      - name: Install System Dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg imagemagick fonts-noto fonts-hosny-amiri libcurl4-openssl-dev
-          sudo fc-cache -f
-          if [ -f /etc/ImageMagick-6/policy.xml ]; then
-            sudo sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<policy domain="path" rights="read\|write" pattern="@*"/>|' /etc/ImageMagick-6/policy.xml
-          fi
-          pip install -r requirements.txt
-          python3 -c "import curl_cffi; print('✅ curl_cffi', curl_cffi.__version__)"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg imagemagick fonts-noto-core
 
-      - name: 🤖 تشغيل البوت - مراقبة يوتيوب ونشر للفيسبوك
+      - name: Install Python Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate PO Token
+        id: potoken
+        run: |
+          pip install yt-dlp-pot-provider 2>/dev/null || true
+          # نجربو نولدو PO Token تلقائياً
+          python3 -c "
+          import subprocess, json, sys
+          try:
+              result = subprocess.run(
+                  ['python3', '-m', 'yt_dlp_pot_provider'],
+                  capture_output=True, text=True, timeout=30
+              )
+              print(result.stdout)
+          except Exception as e:
+              print(f'PO Token generation skipped: {e}', file=sys.stderr)
+          " || echo "PO Token not available"
+
+      - name: Run Podcast Bot
         env:
-          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          FB_PAGE_ID:      ${{ secrets.FB_PAGE_ID }}
           FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
+          YOUTUBE_CHANNEL: ${{ secrets.YOUTUBE_CHANNEL }}
+          PO_TOKEN:        ${{ secrets.PO_TOKEN }}
         run: |
-          python podcast_bot.py \
-            --page-id "$FB_PAGE_ID" \
-            --token "$FB_ACCESS_TOKEN" \
-            --youtube-channel "$YOUTUBE_CHANNEL" \
-            --bg abdo.png \
-            --output output \
-            --part-duration 1800
-
-      - name: 💾 حفظ الحالة (processed.txt) في المستودع
-        run: |
-          git config user.name "Podcast Bot"
-          git config user.email "bot@podcast.com"
-          if [ -f processed.txt ] && [ -s processed.txt ]; then
-            git add processed.txt
-            git diff --staged --quiet || git commit -m "🤖 تحديث processed.txt $(date +%Y-%m-%d)"
-            git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-            git push
+          if [ -n "${{ github.event.inputs.test_url }}" ]; then
+            echo "🚀 وضع التجربة: ${{ github.event.inputs.test_url }}"
+            python podcast_bot.py \
+              --url "${{ github.event.inputs.test_url }}" \
+              --title "${{ github.event.inputs.test_title }}"
+          else
+            echo "🔍 وضع تلقائي"
+            python podcast_bot.py
           fi
-
-      - name: 📥 رفع الفيديوات كـ Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: podcast-video
-          path: output/
-          if-no-files-found: warn
