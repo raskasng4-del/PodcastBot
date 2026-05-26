@@ -6,8 +6,36 @@ dist
 # Ignore the output video from Git but not videos you import into src/.
 out
 youtube_cookies.txt
+
+# Irrelevant / generated files
 open-design/
 .playwright-mcp/
 __pycache__/
 output/
 temp/
+public/
+.agents/
+opencode.json
+skills-lock.json
+package-lock.json
+quiz_items.json
+
+# Facebook debug screenshots
+facebook-*.png
+facebook-page
+facebook-search-results.png
+
+# Generated scripts
+generate_quiz.py
+generate_story.py
+
+# Snapshots / docs
+gh-snapshot.md
+github-create-file.png
+github-form.yml
+github-new-file.yml
+github-repo-final.png
+newfile-snapshot.yml
+
+# Fonts
+Cairo-Bold.ttf
