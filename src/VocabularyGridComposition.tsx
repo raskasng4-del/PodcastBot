@@ -30,6 +30,8 @@ export interface VocabularyGridProps {
   totalDuration?: number;
 }
 
+const YELLOW = "#FFD700";
+const WHITE = "#FFFFFF";
 const ACTIVE_BORDER = "#00d4ff";
 
 const TitleBar: React.FC<{ text: string }> = ({ text }) => {
@@ -52,12 +54,13 @@ const TitleBar: React.FC<{ text: string }> = ({ text }) => {
         fontFamily: "Arial, Helvetica, sans-serif",
         fontSize: 38,
         fontWeight: 800,
-        color: "#1a1a2e",
+        color: YELLOW,
         textAlign: "center",
         opacity,
         transform: `translateY(${y}px)`,
         marginBottom: 32,
         letterSpacing: 1,
+        textShadow: "0 0 30px rgba(255, 215, 0, 0.15)",
       }}
     >
       {text}
@@ -102,13 +105,13 @@ const VocabularyCell: React.FC<{
         gap: 8,
         padding: "20px 10px",
         borderRadius: 16,
-        backgroundColor: "#ffffff",
+        backgroundColor: "#1A1A1A",
         boxShadow: isActive
-          ? "0 8px 30px rgba(0, 212, 255, 0.2)"
-          : "0 4px 20px rgba(0,0,0,0.06)",
+          ? "0 8px 30px rgba(0, 212, 255, 0.3)"
+          : "0 4px 24px rgba(0,0,0,0.5)",
         border: isActive
           ? `2px solid ${ACTIVE_BORDER}`
-          : "2px solid transparent",
+          : "2px solid rgba(255,255,255,0.06)",
         transform: `scale(${activeScale})`,
         opacity: entryOpacity,
       }}
@@ -119,8 +122,9 @@ const VocabularyCell: React.FC<{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: 26,
           fontWeight: 700,
-          color: "#1a1a2e",
+          color: YELLOW,
           textAlign: "center",
+          textShadow: "0 0 20px rgba(255, 215, 0, 0.2)",
         }}
       >
         {word.french}
@@ -130,12 +134,58 @@ const VocabularyCell: React.FC<{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: 16,
           fontWeight: 400,
-          color: "#6b7280",
+          color: WHITE,
           textAlign: "center",
+          opacity: 0.7,
         }}
       >
         {word.english}
       </span>
+    </div>
+  );
+};
+
+const SubscribeButton: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const fadeIn = interpolate(frame, [fps * 2, fps * 3], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.bezier(0.16, 1, 0.3, 1),
+  });
+
+  const breathe = Math.sin((frame / fps) * Math.PI * 1.2) * 0.04 + 1;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 90,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "center",
+        opacity: fadeIn,
+        transform: `scale(${breathe})`,
+      }}
+    >
+      <div
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          fontSize: 22,
+          fontWeight: 700,
+          color: WHITE,
+          backgroundColor: "#FF0000",
+          padding: "14px 48px",
+          borderRadius: 50,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          boxShadow: "0 4px 30px rgba(255, 0, 0, 0.4)",
+        }}
+      >
+        Subscribe
+      </div>
     </div>
   );
 };
@@ -170,7 +220,7 @@ const Branding: React.FC = () => {
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: 14,
           fontWeight: 700,
-          color: "rgba(0,0,0,0.2)",
+          color: "rgba(255,255,255,0.3)",
           letterSpacing: 3,
           textTransform: "uppercase",
         }}
@@ -181,7 +231,7 @@ const Branding: React.FC = () => {
         style={{
           width: 30,
           height: 2,
-          backgroundColor: "rgba(0,0,0,0.1)",
+          backgroundColor: "rgba(255,255,255,0.15)",
           borderRadius: 1,
         }}
       />
@@ -216,7 +266,7 @@ export const VocabularyGridComposition: React.FC<VocabularyGridProps> = ({
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#f0f2f5",
+        backgroundColor: "#000000",
       }}
     >
       {timeline.map((entry, i) => (
@@ -256,6 +306,7 @@ export const VocabularyGridComposition: React.FC<VocabularyGridProps> = ({
         </div>
       </AbsoluteFill>
 
+      <SubscribeButton />
       <Branding />
     </AbsoluteFill>
   );
