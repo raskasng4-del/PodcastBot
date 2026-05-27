@@ -6,6 +6,10 @@ import {
   ConjugationComposition,
   ConjugationProps,
 } from "./ConjugationComposition";
+import {
+  VocabularyGridComposition,
+  VocabularyGridProps,
+} from "./VocabularyGridComposition";
 import { getAudioDurationFromFile } from "./get-audio-duration";
 
 const FPS = 30;
@@ -48,6 +52,30 @@ const calculateConjugationMetadata: CalculateMetadataFunction<
   );
   const timeline = props.timeline.map((t, i) => ({
     ...t,
+    durationInFrames: Math.ceil(durs[i] * FPS),
+  }));
+  let startFrame = 0;
+  for (const entry of timeline) {
+    entry.startFrame = startFrame;
+    startFrame += entry.durationInFrames;
+  }
+  return {
+    durationInFrames: startFrame,
+    props: { ...props, timeline, totalDuration: startFrame },
+  };
+};
+
+const calculateVocabularyMetadata: CalculateMetadataFunction<
+  VocabularyGridProps
+> = async ({ props }) => {
+  const durs = await Promise.all(
+    props.words.map((w) =>
+      getAudioDurationFromFile(w.audioSrc).catch(() => 1.5),
+    ),
+  );
+  const timeline = props.words.map((w, i) => ({
+    wordIndex: i,
+    startFrame: 0,
     durationInFrames: Math.ceil(durs[i] * FPS),
   }));
   let startFrame = 0;
@@ -158,6 +186,56 @@ export const RemotionRoot: React.FC = () => {
           totalDuration: 300,
         }}
         calculateMetadata={calculateConjugationMetadata}
+      />
+      <Composition
+        id="VocabularyGrid"
+        component={VocabularyGridComposition}
+        durationInFrames={300}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          title: "Les Objets du Quotidien",
+          words: [
+            {
+              french: "Maison",
+              english: "House",
+              emoji: "🏠",
+              audioSrc: "audio/vocab_maison.mp3",
+            },
+            {
+              french: "Voiture",
+              english: "Car",
+              emoji: "🚗",
+              audioSrc: "audio/vocab_voiture.mp3",
+            },
+            {
+              french: "Livre",
+              english: "Book",
+              emoji: "📖",
+              audioSrc: "audio/vocab_livre.mp3",
+            },
+            {
+              french: "Chat",
+              english: "Cat",
+              emoji: "🐱",
+              audioSrc: "audio/vocab_chat.mp3",
+            },
+            {
+              french: "Fleur",
+              english: "Flower",
+              emoji: "🌸",
+              audioSrc: "audio/vocab_fleur.mp3",
+            },
+            {
+              french: "Pain",
+              english: "Bread",
+              emoji: "🥖",
+              audioSrc: "audio/vocab_pain.mp3",
+            },
+          ],
+        }}
+        calculateMetadata={calculateVocabularyMetadata}
       />
     </>
   );
